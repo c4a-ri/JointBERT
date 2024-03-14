@@ -1,10 +1,7 @@
 import os
 
 
-def vocab_process(data_dir):
-    slot_label_vocab = 'slot_label.txt'
-    intent_label_vocab = 'intent_label.txt'
-
+def vocab_process(intent_label_vocab, slot_label_vocab, data_dir):
     train_dir = os.path.join(data_dir, 'train')
     # intent
     with open(os.path.join(train_dir, 'label'), 'r', encoding='utf-8') as f_r, open(os.path.join(data_dir, intent_label_vocab), 'w',
@@ -44,5 +41,5 @@ def vocab_process(data_dir):
 
 
 if __name__ == "__main__":
-    vocab_process('atis')
-    vocab_process('snips')
+    vocab_process('intent_label.txt', 'slot_label.txt', 'atis')
+    vocab_process('intent_label.txt', 'slot_label.txt', 'snips')

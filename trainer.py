@@ -7,7 +7,7 @@ import torch
 from torch.utils.data import DataLoader, RandomSampler, SequentialSampler
 from transformers import BertConfig, AdamW, get_linear_schedule_with_warmup
 
-from utils import MODEL_CLASSES, compute_metrics, get_intent_labels, get_slot_labels
+from .utils import MODEL_CLASSES, compute_metrics, get_intent_labels, get_slot_labels
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +53,7 @@ class Trainer(object):
              'weight_decay': self.args.weight_decay},
             {'params': [p for n, p in self.model.named_parameters() if any(nd in n for nd in no_decay)], 'weight_decay': 0.0}
         ]
-        optimizer = AdamW(optimizer_grouped_parameters, lr=self.args.learning_rate, eps=self.args.adam_epsilon)
+        optimizer = AdamW(optimizer_grouped_parameters, lr=float(self.args.learning_rate), eps=float(self.args.adam_epsilon))
         scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=self.args.warmup_steps, num_training_steps=t_total)
 
         # Train!
@@ -69,6 +69,7 @@ class Trainer(object):
         global_step = 0
         tr_loss = 0.0
         self.model.zero_grad()
+        saved_flag = False
 
         train_iterator = trange(int(self.args.num_train_epochs), desc="Epoch")
 
@@ -106,6 +107,7 @@ class Trainer(object):
 
                     if self.args.save_steps > 0 and global_step % self.args.save_steps == 0:
                         self.save_model()
+                        saved_flag = True
 
                 if 0 < self.args.max_steps < global_step:
                     epoch_iterator.close()
@@ -114,6 +116,10 @@ class Trainer(object):
             if 0 < self.args.max_steps < global_step:
                 train_iterator.close()
                 break
+
+        if not saved_flag:
+            # save model
+            self.save_model()
 
         return global_step, tr_loss / global_step
 
@@ -206,7 +212,7 @@ class Trainer(object):
         total_result = compute_metrics(intent_preds, out_intent_label_ids, slot_preds_list, out_slot_label_list)
         results.update(total_result)
 
-        logger.info("***** Eval results *****")
+        logger.info(f"***** Eval results mode={mode} *****")
         for key in sorted(results.keys()):
             logger.info("  %s = %s", key, str(results[key]))
 
@@ -214,26 +220,32 @@ class Trainer(object):
 
     def save_model(self):
         # Save model checkpoint (Overwrite)
-        if not os.path.exists(self.args.model_dir):
-            os.makedirs(self.args.model_dir)
+        model_dir = os.path.join(self.args.app_dir, self.args.model_dir)
+        if not os.path.exists(model_dir):
+            os.makedirs(model_dir)
         model_to_save = self.model.module if hasattr(self.model, 'module') else self.model
-        model_to_save.save_pretrained(self.args.model_dir)
+        model_to_save.save_pretrained(model_dir)
 
         # Save training arguments together with the trained model
-        torch.save(self.args, os.path.join(self.args.model_dir, 'training_args.bin'))
-        logger.info("Saving model checkpoint to %s", self.args.model_dir)
+        torch.save(self.args, os.path.join(model_dir, 'training_args.bin'))
+        logger.info("Saving model checkpoint to %s", model_dir)
 
     def load_model(self):
+        model_dir = os.path.join(self.args.app_dir, self.args.model_dir)
+        model_path = ''
         # Check whether model exists
-        if not os.path.exists(self.args.model_dir):
-            raise Exception("Model doesn't exists! Train first!")
+        if not os.path.exists(model_dir):
+            # raise Exception("Model doesn't exists! Train first!")
+            model_path = self.args.model_name_or_path
+        else:
+            model_path = model_dir
 
         try:
-            self.model = self.model_class.from_pretrained(self.args.model_dir,
+            self.model = self.model_class.from_pretrained(model_path,
                                                           args=self.args,
                                                           intent_label_lst=self.intent_label_lst,
                                                           slot_label_lst=self.slot_label_lst)
             self.model.to(self.device)
             logger.info("***** Model Loaded *****")
-        except:
+        except Exception:
             raise Exception("Some model files might be missing...")

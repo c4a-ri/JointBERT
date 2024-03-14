@@ -1,5 +1,6 @@
 # JointBERT
-
+### Customized for dialbb project. (March 2024)
+--------------
 (Unofficial) Pytorch implementation of `JointBERT`: [BERT for Joint Intent Classification and Slot Filling](https://arxiv.org/abs/1902.10909)
 
 ## Model Architecture

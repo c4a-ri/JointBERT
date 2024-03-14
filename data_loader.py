@@ -6,7 +6,7 @@ import logging
 import torch
 from torch.utils.data import TensorDataset
 
-from utils import get_intent_labels, get_slot_labels
+from .utils import get_intent_labels, get_slot_labels
 
 logger = logging.getLogger(__name__)
 
@@ -108,7 +108,7 @@ class JointProcessor(object):
         Args:
             mode: train, dev, test
         """
-        data_path = os.path.join(self.args.data_dir, self.args.task, mode)
+        data_path = os.path.join(self.args.app_dir, self.args.data_dir, mode)
         logger.info("LOOKING AT {}".format(data_path))
         return self._create_examples(texts=self._read_file(os.path.join(data_path, self.input_text_file)),
                                      intents=self._read_file(os.path.join(data_path, self.intent_label_file)),
@@ -118,7 +118,8 @@ class JointProcessor(object):
 
 processors = {
     "atis": JointProcessor,
-    "snips": JointProcessor
+    "snips": JointProcessor,
+    "dialbb": JointProcessor
 }
 
 
@@ -209,10 +210,11 @@ def convert_examples_to_features(examples, max_seq_len, tokenizer,
 
 def load_and_cache_examples(args, tokenizer, mode):
     processor = processors[args.task](args)
+    data_path = os.path.join(args.app_dir, args.data_dir)
 
     # Load data features from cache or dataset file
     cached_features_file = os.path.join(
-        args.data_dir,
+        data_path,
         'cached_{}_{}_{}_{}'.format(
             mode,
             args.task,
